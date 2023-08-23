@@ -1,0 +1,61 @@
+#version: '3'
+networks:
+  mynet:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+volumes:
+  phpfpmd:
+    #相当于执行 docker volume create tmp01
+    #生成的目录 /var/lib/docker/volumes/tmp01/_data/
+    #注意：此设置当容器停止或删除，_data 目录会变为空(所以这里把 name 定为 tmp01)
+    #假如此 .yml 文件所在目录名为 root，如果没有指定 name,则会生成 /var/lib/docker/volumes/root_phpfpmd/_data/
+    name: tmp01
+    driver: local
+    #如果删除 driver_opts 配置项，则只会生成 /var/lib/docker/volumes/tmp01/_data/ 并且此目录的内容，不会因为容器的停止与删除而清空
+    driver_opts:
+      o: bind
+      type: none
+      #注意：此设置需要宿主机目录要事先存在（此目录不会因为容器的停止与删除而被清空）
+      device: /www1/php-fpm/7.4/php-fpm.d
+
+  phpconfd:
+    name: tmp02
+    #driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /www1/php-fpm/7.4/conf.d
+
+services:
+    php-dc4:
+        image: php:7.4-fpm
+        hostname: phpHost4
+        # 映射端口 【宿主机端口:容器端口】
+        ports:
+            - "9004:9000"
+        # 目录挂载 【宿主机目录:容器目录】
+        volumes:
+            # 这种创建方式，宿主机目录或文件 覆盖 容器的目录或文件
+            # 宿主机目录或文件不用事先存在，没有会自动生成
+            - /www1/web:/var/www/html
+            # 此种创建方式，有以下两种情况和注意事项：
+            # 1、如果宿主机目录无内容，容器的目录 覆盖 宿主机目录
+            # 2、如果宿主机目录有内容，宿主机目录 覆盖 容器的目录
+            # 3、宿主机目录要事先建好
+            - phpfpmd:/usr/local/etc/php-fpm.d
+            - phpconfd:/usr/local/etc/php/conf.d
+        # 容器名称
+        container_name: phpfpm4
+        restart: always
+        # 相当于 docker run -i
+        stdin_open: true
+        # 相当于 docker run -t
+        tty: true
+        #networks:
+        #    mynet:
+                 #为容器指定内网ip
+        #        ipv4_address: 172.20.0.10
+        # 容器的ip在设置的网络名的网段中随机生成
+        networks:
+            - mynet
